@@ -1,0 +1,33 @@
+# Virtual environments
+backend/venv/
+venv/
+.venv/
+env/
+
+# Python bytecode & cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Node dependencies
+frontend/node_modules/
+node_modules/
+.npm/
+
+# Environment files
+backend/.env
+.env
+.env.local
+
+# Uploads directory
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# System & IDE
+*.log
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
