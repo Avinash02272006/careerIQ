@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
-from app.api.v1.routers import auth, resume, dashboard, roles, profile, simulation, interview, jobs, admin
+from app.api.v1.routers import auth, resume, dashboard, roles, profile, simulation, interview, jobs, admin, practice
 
 app = FastAPI(title="CareerIQ AI")
 
@@ -26,6 +26,7 @@ app.include_router(simulation.router, prefix="/api/v1")
 app.include_router(interview.router, prefix="/api/v1")
 app.include_router(jobs.router, prefix="/api/v1")
 app.include_router(admin.router, prefix="/api/v1")
+app.include_router(practice.router, prefix="/api/v1")
 
 
 @app.get("/api/health")

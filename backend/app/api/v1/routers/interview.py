@@ -4,6 +4,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from app.api.v1.deps import get_current_user_or_guest
 from app.db.models.user import User
+from app.services.groq_service import (
+    generate_realtime_interview_questions,
+    conduct_ai_interview_turn,
+    evaluate_interview_answer_ai
+)
 
 router = APIRouter(prefix="/interview", tags=["interview"])
 
@@ -364,11 +369,46 @@ class ChatRequest(BaseModel):
 def get_questions(
     role: Optional[str] = "role-fs",
     category: Optional[str] = None,
-    difficulty: Optional[str] = None
+    difficulty: Optional[str] = None,
+    live_ai: bool = False
 ):
     """
-    Returns curated mock interview questions tailored to the candidate's target role.
+    Returns curated or real-time AI generated mock interview questions tailored to the candidate's target role.
     """
+    # Map role slug to readable title
+    role_titles = {
+        "role-fs": "Full Stack Developer",
+        "role-be": "Backend Systems Engineer",
+        "role-fe": "Frontend Platform Engineer",
+        "role-ml": "AI & Machine Learning Specialist",
+        "role-devops": "DevOps & Cloud SRE",
+        "role-mobile": "Mobile Systems Architect",
+        "role-data": "Data Platform Engineer",
+        "role-sec": "Cybersecurity & AppSec Engineer",
+        "role-cloud": "Cloud Infrastructure Architect",
+        "role-pm": "Technical Product Manager"
+    }
+    role_name = role_titles.get(role, role)
+
+    if live_ai:
+        try:
+            live_qs = generate_realtime_interview_questions(
+                role=role_name,
+                category=category or "Technical",
+                difficulty=difficulty or "Senior",
+                count=4
+            )
+            if live_qs:
+                return {
+                    "role": role,
+                    "role_title": role_name,
+                    "total_available": len(live_qs),
+                    "is_live_ai": True,
+                    "questions": live_qs
+                }
+        except Exception as e:
+            pass
+
     bank = EXTENSIVE_QUESTION_BANK.get(role, EXTENSIVE_QUESTION_BANK["role-fs"])
     if not bank:
         bank = EXTENSIVE_QUESTION_BANK["role-fs"]
@@ -381,7 +421,9 @@ def get_questions(
 
     return {
         "role": role,
+        "role_title": role_name,
         "total_available": len(filtered or bank),
+        "is_live_ai": False,
         "questions": filtered if filtered else bank
     }
 
@@ -392,17 +434,10 @@ def evaluate_answer(
     current_user: User = Depends(get_current_user_or_guest)
 ):
     """
-    Deep multi-criteria technical evaluation engine:
-    1. Conceptual coverage vs expected architecture patterns.
-    2. Depth and trade-off articulation.
-    3. Technical correctness and clarity scoring.
-    4. Model senior answer + intelligent follow-up probe.
+    Deep multi-criteria technical evaluation engine powered by Groq LLM:
+    Evaluates technical correctness, architectural trade-offs, concept coverage, and gives exemplary model answer.
     """
-    answer = payload.user_answer.strip()
-    words = answer.split()
-    word_count = len(words)
-
-    # Locate question metadata
+    # Locate question metadata if available
     matching_q = None
     for role_questions in EXTENSIVE_QUESTION_BANK.values():
         for q in role_questions:
@@ -416,82 +451,69 @@ def evaluate_answer(
         "Architecture", "Scalability", "Optimization", "Trade-offs", "Security", "Failure Modes"
     ]
 
-    # Evaluate concept coverage
-    matched_concepts = [c for c in expected_concepts if c.lower() in answer.lower()]
-    missing_concepts = [c for c in expected_concepts if c not in matched_concepts]
-    concept_ratio = len(matched_concepts) / max(len(expected_concepts), 1)
+    try:
+        evaluation = evaluate_interview_answer_ai(
+            role=payload.role_id,
+            question=payload.question_text,
+            user_answer=payload.user_answer,
+            key_concepts=expected_concepts
+        )
+        return evaluation
+    except Exception:
+        # Resilient fallback
+        answer = payload.user_answer.strip()
+        words = answer.split()
+        word_count = len(words)
+        matched_concepts = [c for c in expected_concepts if c.lower() in answer.lower()]
+        missing_concepts = [c for c in expected_concepts if c not in matched_concepts]
+        concept_ratio = len(matched_concepts) / max(len(expected_concepts), 1)
+        depth_multiplier = min(word_count / 120.0, 1.0)
 
-    # Word count depth curve
-    depth_multiplier = min(word_count / 120.0, 1.0)
+        tech_score = int(min(100, max(45, (concept_ratio * 65.0) + (depth_multiplier * 35.0))))
+        clarity_score = int(min(98, max(50, 70 + (10 if word_count > 60 else -10))))
+        completeness_score = int(min(96, max(35, (concept_ratio * 50.0) + (depth_multiplier * 50.0))))
+        overall_score = int((tech_score * 0.45) + (completeness_score * 0.35) + (clarity_score * 0.20))
 
-    # Calculate multi-dimensional metrics
-    tech_score = int(min(100, max(45, (concept_ratio * 65.0) + (depth_multiplier * 35.0))))
-    clarity_score = int(min(98, max(50, 70 + (10 if word_count > 60 else -10) + (10 if ("." in answer or "\n" in answer) else 0))))
-    completeness_score = int(min(96, max(35, (concept_ratio * 50.0) + (depth_multiplier * 50.0))))
-    overall_score = int((tech_score * 0.45) + (completeness_score * 0.35) + (clarity_score * 0.20))
-
-    strengths = []
-    if matched_concepts:
-        strengths.append(f"Strong command of foundational concepts: {', '.join(matched_concepts[:4])}")
-    if word_count > 80:
-        strengths.append("Provided thorough architectural explanation with concrete system trade-offs")
-    else:
-        strengths.append("Direct, concise initial technical direction")
-
-    improvements = []
-    if missing_concepts:
-        improvements.append(f"Deepen response by addressing: {', '.join(missing_concepts[:3])}")
-    if word_count < 75:
-        improvements.append("Elaborate on production failure modes, latency SLAs, and memory footprints")
-    improvements.append("Incorporate quantitative metrics (e.g. latency, throughput, error rates) from personal experience")
-
-    verdict = (
-        "Exceptional Candidate (Senior+)" if overall_score >= 88
-        else "Strong Technical Response" if overall_score >= 74
-        else "Competent (Needs Deeper Trade-Offs)" if overall_score >= 60
-        else "Developing Foundation"
-    )
-
-    followup_q = matching_q.get("followup", "Can you explain how you would monitor and alert on this system in production?") if matching_q else "How do you handle edge cases when traffic spikes 10x?"
-
-    return {
-        "score": overall_score,
-        "technical_score": tech_score,
-        "clarity_score": clarity_score,
-        "completeness_score": completeness_score,
-        "verdict": verdict,
-        "word_count": word_count,
-        "matched_concepts": matched_concepts,
-        "missing_concepts": missing_concepts[:3],
-        "strengths": strengths,
-        "improvements": improvements,
-        "model_answer": matching_q["model_answer"] if matching_q else "A senior engineer structures their answer around system constraints, architecture trade-offs, and measurable SLA metrics.",
-        "followup_question": followup_q,
-        "feedback": f"Your response earned {overall_score}%. {strengths[0]}."
-    }
+        return {
+            "score": overall_score,
+            "technical_score": tech_score,
+            "clarity_score": clarity_score,
+            "completeness_score": completeness_score,
+            "verdict": "Strong Technical Response" if overall_score >= 75 else "Competent (Needs Deeper Trade-Offs)",
+            "word_count": word_count,
+            "matched_concepts": matched_concepts,
+            "missing_concepts": missing_concepts[:3],
+            "strengths": ["Clear technical direction provided"],
+            "improvements": ["Elaborate on production failure modes and latency SLAs"],
+            "model_answer": matching_q["model_answer"] if matching_q else "A senior engineer structures their answer around system constraints and measurable SLA metrics.",
+            "followup_question": matching_q.get("followup", "How do you handle edge cases when traffic spikes 10x?"),
+            "feedback": f"Your response earned {overall_score}%."
+        }
 
 
 @router.post("/converse")
 def chat_with_interviewer(payload: ChatRequest):
     """
-    Simulates a live multi-turn AI technical interview conversation.
+    Simulates a live multi-turn AI technical interview conversation powered by Groq LLM.
     Interviewer challenges candidate assumptions, probes design trade-offs, and guides dialogue.
     """
-    user_msg = payload.user_message.strip()
-    words = user_msg.split()
-
-    # Dynamic critique and follow-up generation
-    ai_response = ""
-    if len(words) < 15:
-        ai_response = f"That's a start, but in a senior technical interview you need to be specific. When you mention that approach, what happens when concurrent writes occur or during network partitions? Walk me through the exact failure recovery sequence."
-    elif any(kw in user_msg.lower() for kw in ["redis", "cache", "lock", "jwt", "gateway"]):
-        ai_response = f"Good technical point regarding your caching and access layer. Let's dig deeper: how do you prevent cache stampedes (thundering herd) when a critical key expires under 10,000 requests per second? Would you implement probabilistic early expiration or distributed locks?"
-    elif any(kw in user_msg.lower() for kw in ["database", "postgres", "sql", "index", "query"]):
-        ai_response = f"Interesting database choice. If your query response time degrades from 20ms to 2.5s under peak load, what specific tools (e.g., EXPLAIN ANALYZE, pg_stat_statements) do you use to locate the bottleneck, and how do you decide between a composite index vs partitioning?"
-    else:
-        ai_response = f"Solid breakdown. Now let's consider scale: if this service needs to handle 50,000 requests per second across 3 continents with sub-100ms latency, how does your architecture evolve? What trade-offs between consistency and availability (CAP theorem) do you accept?"
-
-    return {
-        "interviewer_reply": ai_response,
-        "encouragement": "Good active dialogue. Continue articulating your technical reasoning clearly."
-    }
+    try:
+        return conduct_ai_interview_turn(
+            role=payload.role_id,
+            question=payload.question_text,
+            conversation_history=payload.conversation_history,
+            user_message=payload.user_message
+        )
+    except Exception:
+        user_msg = payload.user_message.strip()
+        words = user_msg.split()
+        if len(words) < 15:
+            reply = "That's a start, but in a senior technical interview you need to be specific. What happens when concurrent writes occur or during network partitions? Walk me through the exact failure recovery sequence."
+        elif any(kw in user_msg.lower() for kw in ["redis", "cache", "lock", "jwt", "gateway"]):
+            reply = "Good technical point regarding your caching and access layer. How do you prevent cache stampedes (thundering herd) when a critical key expires under 10,000 requests per second?"
+        else:
+            reply = "Solid breakdown. If this service needs to handle 50,000 requests per second across multiple regions, how does your architecture evolve to preserve consistency and latency?"
+        return {
+            "interviewer_reply": reply,
+            "encouragement": "Good active dialogue. Continue articulating your technical reasoning clearly."
+        }

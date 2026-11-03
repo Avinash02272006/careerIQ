@@ -38,6 +38,7 @@ export default function Navbar({ onOpenCommandPalette, onOpenExportReport }) {
     { name: "Overview", path: "/" },
     { name: "Dashboard", path: "/dashboard" },
     { name: "Resume Analyzer", path: "/resume-analyzer" },
+    { name: "Q&A & Practice", path: "/practice" },
     { name: "Mock Interview", path: "/interview" },
     { name: "Job Matching", path: "/job-matching" },
     { name: "Admin", path: "/admin" },
@@ -83,6 +84,7 @@ export default function Navbar({ onOpenCommandPalette, onOpenExportReport }) {
               (item.path === "/resume-analyzer" && location.pathname === "/upload") ||
               (item.path === "/job-matching" && location.pathname === "/jobs") ||
               (item.path === "/admin" && location.pathname === "/admin-dashboard") ||
+              (item.path === "/practice" && (location.pathname === "/questions" || location.pathname === "/qa" || location.pathname === "/tests")) ||
               (item.path === "/interview" && location.pathname === "/mock-interview");
 
             return (

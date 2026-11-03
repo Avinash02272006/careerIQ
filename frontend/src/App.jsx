@@ -10,6 +10,7 @@ import CareerUniverse from "./pages/Universe/CareerUniverse";
 import Interview from "./pages/Interview/Interview";
 import JobMatching from "./pages/JobMatching/JobMatching";
 import AdminDashboard from "./pages/AdminDashboard/AdminDashboard";
+import PracticeHub from "./pages/Practice/PracticeHub";
 
 function App() {
   return (
@@ -22,6 +23,10 @@ function App() {
           <Route path="/upload" element={<ResumeUpload />} />
           <Route path="/resume-analyzer" element={<ResumeUpload />} />
           <Route path="/analyzer" element={<ResumeUpload />} />
+          <Route path="/practice" element={<PracticeHub />} />
+          <Route path="/questions" element={<PracticeHub />} />
+          <Route path="/qa" element={<PracticeHub />} />
+          <Route path="/tests" element={<PracticeHub />} />
           <Route path="/interview" element={<Interview />} />
           <Route path="/mock-interview" element={<Interview />} />
           <Route path="/job-matching" element={<JobMatching />} />

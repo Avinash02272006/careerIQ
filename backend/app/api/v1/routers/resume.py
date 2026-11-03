@@ -11,6 +11,12 @@ from app.schemas.resume import ResumeUploadResponse, ResumeStatusResponse, Parse
 from app.services.resume_parser.pipeline import process_resume, parse_resume_content
 from app.api.v1.deps import get_current_user_or_guest
 from app.db.models.user import User
+from app.services.groq_service import audit_resume_with_ai
+from pydantic import BaseModel
+
+class ResumeAuditRequest(BaseModel):
+    resume_text: str
+    target_role: Optional[str] = "AI & Data Science Engineer"
 
 router = APIRouter(prefix="/resume", tags=["resume"])
 
@@ -170,4 +176,20 @@ def get_resume_status(
         status=status,
         quality_score=float(resume.quality_score) if resume.quality_score is not None else None,
         extracted_data=extracted_data,
+    )
+
+
+@router.post("/audit-ai")
+def audit_resume_ai(payload: ResumeAuditRequest):
+    """
+    Real-time AI audit of resume extracted text powered by Groq:
+    Analyzes ATS score, radar metrics, keyword gaps, and gives high-impact bullet upgrades.
+    """
+    text = payload.resume_text.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Resume text cannot be empty")
+
+    return audit_resume_with_ai(
+        resume_text=text,
+        target_role=payload.target_role or "AI & Data Science Engineer"
     )

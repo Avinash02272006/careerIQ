@@ -28,8 +28,27 @@ export default function Interview() {
   const [interviewMode, setInterviewMode] = useState("evaluate"); // "evaluate" | "dialogue"
   const [chatMessages, setChatMessages] = useState([]);
   const [isAiThinking, setIsAiThinking] = useState(false);
+  const [loadingLiveAi, setLoadingLiveAi] = useState(false);
 
   const activeRole = BENCHMARK_ROLES.find((r) => r.id === targetRoleId) || BENCHMARK_ROLES[0];
+
+  const fetchLiveAiQuestions = async () => {
+    setLoadingLiveAi(true);
+    try {
+      const res = await apiClient.get(`/interview/questions?role=${targetRoleId}&live_ai=true`);
+      if (res.data?.questions && res.data.questions.length > 0) {
+        setQuestions(res.data.questions);
+        setCurrentIndex(0);
+        setEvaluation(null);
+        setUserAnswer("");
+        setChatMessages([]);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingLiveAi(false);
+    }
+  };
 
   // Fetch Questions from Backend
   useEffect(() => {
@@ -324,6 +343,22 @@ export default function Interview() {
               ))}
             </select>
           </div>
+
+          <button
+            onClick={fetchLiveAiQuestions}
+            disabled={loadingLiveAi}
+            className="px-3 py-2 rounded-xl bg-gradient-to-r from-[#2DD4BF]/20 to-teal-900/30 border border-[#2DD4BF]/40 hover:border-[#2DD4BF] text-[#2DD4BF] text-xs font-mono transition-colors flex items-center gap-1.5 shadow"
+            title="Generate fresh, real-time technical questions using Groq LLM"
+          >
+            {loadingLiveAi ? (
+              <>
+                <span className="w-3 h-3 rounded-full border-2 border-t-[#2DD4BF] border-white/20 animate-spin" />
+                <span>Generating with Groq...</span>
+              </>
+            ) : (
+              <>⚡ Live AI Questions (Groq)</>
+            )}
+          </button>
 
           <div className="flex bg-[#0D0F15] border border-white/[0.08] rounded-xl p-1 text-xs">
             <button
