@@ -1,5 +1,6 @@
 import uuid
 import re
+import json
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
@@ -618,7 +619,6 @@ Return ONLY a valid JSON array of objects with keys:
         raw_res = call_groq_chat(messages, temperature=0.4, max_tokens=1500)
         clean_json = re.sub(r"^```(?:json)?\s*", "", raw_res.strip())
         clean_json = re.sub(r"\s*```$", "", clean_json.strip())
-        import json
         jobs_list = json.loads(clean_json)
         if isinstance(jobs_list, list) and len(jobs_list) > 0:
             return {
@@ -635,7 +635,7 @@ Return ONLY a valid JSON array of objects with keys:
     search_encoded = query.replace(" ", "%20")
     fallback_jobs = [
         {
-            "id": f"rt-job-1",
+            "id": "rt-job-1",
             "title": f"Junior AI & Data Science Engineer ({query})",
             "company": "DeepMind / Google Cloud",
             "location": location,
@@ -649,7 +649,7 @@ Return ONLY a valid JSON array of objects with keys:
             "portal_name": "LinkedIn Direct Jobs"
         },
         {
-            "id": f"rt-job-2",
+            "id": "rt-job-2",
             "title": f"Applied Machine Learning & GenAI Developer",
             "company": "Microsoft AI",
             "location": location,

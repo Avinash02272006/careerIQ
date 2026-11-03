@@ -140,3 +140,4 @@ def ask_ai_problem_solver(payload: AskAIProblemRequest):
             "track": payload.track,
             "ai_solution": "AI Service currently busy. Please review standard formulas for this topic."
         }
+

@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import re
 from typing import List, Dict, Any, Optional
 from groq import Groq
@@ -11,7 +12,6 @@ PRIMARY_MODEL = "openai/gpt-oss-120b"
 BACKUP_MODEL = "qwen/qwen3.8-27b"
 
 def get_client() -> Optional[Groq]:
-    import os
     api_key = settings.GROQ_API_KEY or os.getenv("GROQ_API_KEY", "")
     if not api_key:
         return None
