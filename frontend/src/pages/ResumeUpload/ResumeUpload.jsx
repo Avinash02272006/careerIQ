@@ -70,6 +70,7 @@ export default function ResumeUpload() {
   const [showRawText, setShowRawText] = useState(false);
   const [aiAudit, setAiAudit] = useState(null);
   const [loadingAudit, setLoadingAudit] = useState(false);
+  const [selectedMetric, setSelectedMetric] = useState(null);
   const navigate = useNavigate();
 
   const fetchAiAudit = async (rawText) => {
@@ -268,19 +269,25 @@ export default function ResumeUpload() {
           {/* VISUAL CHARTS & METRICS ROW */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pt-2">
             {/* RADAR CHART (5-AXIS CANDIDATE READINESS) */}
-            <div className="lg:col-span-6 bg-[#08090C] border border-white/[0.06] rounded-xl p-4 flex flex-col items-center">
-              <div className="w-full flex justify-between items-center mb-2">
-                <span className="text-[11px] font-mono uppercase text-[#2DD4BF] font-semibold">
-                  Competency Vector (vs Senior Benchmark)
-                </span>
+            <div className="lg:col-span-6 bg-[#08090C] border border-white/[0.08] rounded-2xl p-5 flex flex-col justify-between shadow-xl space-y-4">
+              <div className="w-full flex justify-between items-center pb-2 border-b border-white/[0.06]">
+                <div>
+                  <span className="text-[11px] font-mono uppercase text-[#2DD4BF] font-semibold block">
+                    Multi-Dimensional Competency Vector
+                  </span>
+                  <span className="text-[10px] text-neutral-400 font-mono">
+                    Candidate Vector vs 75th Percentile Senior Benchmark
+                  </span>
+                </div>
                 {loadingAudit && (
-                  <span className="text-[10px] text-amber-400 font-mono animate-pulse">
+                  <span className="text-[10px] text-amber-400 font-mono animate-pulse bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/20">
                     ⚡ Auditing with Groq AI...
                   </span>
                 )}
               </div>
 
-              <div className="h-64 w-full">
+              {/* 5-AXIS RADAR CHART */}
+              <div className="h-64 w-full relative">
                 <ResponsiveContainer width="100%" height="100%">
                   <RadarChart
                     data={
@@ -293,41 +300,149 @@ export default function ResumeUpload() {
                       ]
                     }
                   >
-                    <PolarGrid stroke="#222" />
-                    <PolarAngleAxis dataKey="metric" stroke="#888" tick={{ fill: "#9CA3AF", fontSize: 10 }} />
+                    <defs>
+                      <linearGradient id="candidateGradient" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0%" stopColor="#2DD4BF" stopOpacity={0.65} />
+                        <stop offset="100%" stopColor="#0D9488" stopOpacity={0.25} />
+                      </linearGradient>
+                      <linearGradient id="benchmarkGradient" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0%" stopColor="#818CF8" stopOpacity={0.35} />
+                        <stop offset="100%" stopColor="#4F46E5" stopOpacity={0.08} />
+                      </linearGradient>
+                    </defs>
+                    <PolarGrid stroke="#262833" />
+                    <PolarAngleAxis
+                      dataKey="metric"
+                      stroke="#888"
+                      tick={{ fill: "#A1A1AA", fontSize: 10, fontFamily: "monospace" }}
+                    />
                     <PolarRadiusAxis stroke="#333" domain={[0, 100]} tick={false} />
                     <Radar
-                      name="Candidate Score"
+                      name="Candidate Profile"
                       dataKey="score"
                       stroke="#2DD4BF"
-                      fill="#2DD4BF"
-                      fillOpacity={0.4}
+                      strokeWidth={2}
+                      fill="url(#candidateGradient)"
+                      fillOpacity={1}
                     />
                     <Radar
-                      name="Benchmark"
+                      name="Industry Benchmark"
                       dataKey="benchmark"
-                      stroke="#6366F1"
-                      fill="#6366F1"
-                      fillOpacity={0.15}
+                      stroke="#818CF8"
+                      strokeWidth={1.5}
+                      strokeDasharray="3 3"
+                      fill="url(#benchmarkGradient)"
+                      fillOpacity={1}
                     />
                     <Tooltip
-                      contentStyle={{
-                        backgroundColor: "#0A0C13",
-                        borderColor: "#333",
-                        borderRadius: "8px",
-                        fontSize: "11px",
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          const data = payload[0].payload;
+                          const delta = data.score - data.benchmark;
+                          return (
+                            <div className="p-3 bg-[#0E1015]/95 border border-white/20 rounded-xl shadow-2xl text-xs font-mono space-y-1">
+                              <span className="text-[#2DD4BF] font-bold block">{data.metric}</span>
+                              <div className="flex justify-between gap-4 text-white">
+                                <span>Candidate:</span>
+                                <strong className="text-[#2DD4BF]">{data.score}%</strong>
+                              </div>
+                              <div className="flex justify-between gap-4 text-neutral-400">
+                                <span>Benchmark:</span>
+                                <strong className="text-indigo-400">{data.benchmark}%</strong>
+                              </div>
+                              <div className={`pt-1 border-t border-white/10 ${delta >= 0 ? "text-emerald-400 font-semibold" : "text-amber-400 font-semibold"}`}>
+                                {delta >= 0 ? `▲ +${delta}% Competitive Advantage` : `▼ ${delta}% Gap Below Benchmark`}
+                              </div>
+                            </div>
+                          );
+                        }
+                        return null;
                       }}
                     />
                   </RadarChart>
                 </ResponsiveContainer>
               </div>
 
-              <div className="flex gap-4 text-[10px] font-mono text-neutral-400 mt-1">
+              {/* HORIZONTAL METRIC PROGRESS BARS */}
+              <div className="space-y-2 pt-2 border-t border-white/[0.06]">
+                <span className="font-mono text-[10px] uppercase tracking-wider text-neutral-400 block font-semibold">
+                  Click Dimension for Deep Strategic Insight:
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {(
+                    aiAudit?.radar_metrics || [
+                      { metric: "Technical Stack", score: 88, benchmark: 85 },
+                      { metric: "System & ML Depth", score: 82, benchmark: 80 },
+                      { metric: "Quant & Math", score: 80, benchmark: 78 },
+                      { metric: "Production Evidence", score: 84, benchmark: 82 },
+                      { metric: "Industry Fit", score: 89, benchmark: 85 },
+                    ]
+                  ).map((m) => {
+                    const delta = m.score - m.benchmark;
+                    const isSelected = selectedMetric?.metric === m.metric;
+                    return (
+                      <button
+                        key={m.metric}
+                        type="button"
+                        onClick={() => setSelectedMetric(isSelected ? null : m)}
+                        className={`p-2.5 rounded-xl border text-left transition-all ${
+                          isSelected
+                            ? "bg-[#2DD4BF]/15 border-[#2DD4BF] shadow-lg"
+                            : "bg-black/40 border-white/[0.06] hover:border-white/[0.2]"
+                        }`}
+                      >
+                        <div className="flex justify-between items-center text-xs font-mono mb-1">
+                          <span className="text-neutral-200 font-medium truncate">{m.metric}</span>
+                          <span className={delta >= 0 ? "text-[#2DD4BF] font-bold" : "text-amber-400 font-bold"}>
+                            {m.score}%
+                          </span>
+                        </div>
+                        {/* Progress meter bar */}
+                        <div className="w-full bg-white/[0.08] h-1.5 rounded-full overflow-hidden flex">
+                          <div
+                            className="bg-gradient-to-r from-[#2DD4BF] to-teal-400 h-full rounded-full transition-all duration-500"
+                            style={{ width: `${Math.min(m.score, 100)}%` }}
+                          />
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* SELECTED METRIC EXPANDED CARD */}
+                {selectedMetric && (
+                  <div className="p-3.5 rounded-xl bg-[#2DD4BF]/10 border border-[#2DD4BF]/30 text-xs font-sans space-y-1 mt-2">
+                    <div className="flex justify-between items-center">
+                      <span className="font-mono text-[11px] font-bold text-[#2DD4BF]">
+                        ★ {selectedMetric.metric} Analysis
+                      </span>
+                      <span className="font-mono text-[10px] text-neutral-300">
+                        Candidate {selectedMetric.score}% vs Benchmark {selectedMetric.benchmark}%
+                      </span>
+                    </div>
+                    <p className="text-neutral-300 text-[11px] leading-relaxed">
+                      {selectedMetric.metric === "Technical Stack" &&
+                        "Your core stack covers standard modern requirements. To reach top-tier tier-1 placement benchmarks, detail multi-cloud and containerization orchestration in project bullets."}
+                      {selectedMetric.metric === "System & ML Depth" &&
+                        "High conceptual understanding detected. Evaluators prioritize real-world failure mode mitigations like caching partitions, loss divergences, and memory leak handling."}
+                      {selectedMetric.metric === "Quant & Math" &&
+                        "Solid mathematical baseline. Enhance your resume with specific algorithmic optimization metrics (e.g. 'Reduced time complexity from O(N²) to O(N log N)')."}
+                      {selectedMetric.metric === "Production Evidence" &&
+                        "Strong project evidence. Boost credibility further by linking live deployed URLs, Docker Hub image repositories, or interactive GitHub demo links."}
+                      {selectedMetric.metric === "Industry Fit" &&
+                        "Your resume keywords align closely with modern engineering job requisitions. You are well-positioned for immediate technical screening rounds."}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* LEGEND ROW */}
+              <div className="flex justify-between items-center text-[10px] font-mono text-neutral-400 pt-1 border-t border-white/[0.06]">
                 <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#2DD4BF]" /> Candidate Profile
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#2DD4BF]" /> Candidate Profile ({extractedResult.score}%)
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#6366F1]" /> Senior Benchmark
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#818CF8]" /> 75th Percentile Senior Benchmark
                 </span>
               </div>
             </div>

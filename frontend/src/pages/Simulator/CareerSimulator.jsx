@@ -220,23 +220,51 @@ export default function CareerSimulator() {
             <h2 className="font-semibold text-sm text-white">Projected Career Lift</h2>
 
             {/* RECHARTS COMPARISON BAR GRAPH */}
-            <div className="h-44 w-full">
+            <div className="h-52 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={comparisonChartData} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="currentBarGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#64748B" stopOpacity={0.8} />
+                      <stop offset="100%" stopColor="#334155" stopOpacity={0.4} />
+                    </linearGradient>
+                    <linearGradient id="projectedBarGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#2DD4BF" stopOpacity={0.9} />
+                      <stop offset="100%" stopColor="#0D9488" stopOpacity={0.5} />
+                    </linearGradient>
+                  </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#1A1D2A" vertical={false} />
-                  <XAxis dataKey="metric" tick={{ fill: "#94A3B8", fontSize: 11 }} />
-                  <YAxis domain={[0, 100]} tick={{ fill: "#64748B", fontSize: 10 }} unit="%" />
+                  <XAxis dataKey="metric" tick={{ fill: "#94A3B8", fontSize: 11, fontFamily: "monospace" }} />
+                  <YAxis domain={[0, 100]} tick={{ fill: "#64748B", fontSize: 10, fontFamily: "monospace" }} unit="%" />
                   <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#0D0F17",
-                      borderColor: "#222738",
-                      fontSize: "11px",
-                      borderRadius: "8px",
+                    content={({ active, payload, label }) => {
+                      if (active && payload && payload.length) {
+                        const cur = payload[0].value;
+                        const proj = payload[1].value;
+                        const gain = proj - cur;
+                        return (
+                          <div className="p-3 bg-[#0D0F17]/95 border border-white/20 rounded-xl shadow-2xl text-xs font-mono space-y-1">
+                            <span className="text-[#2DD4BF] font-bold block">{label}</span>
+                            <div className="flex justify-between gap-4 text-neutral-300">
+                              <span>Baseline:</span>
+                              <strong>{cur}%</strong>
+                            </div>
+                            <div className="flex justify-between gap-4 text-white">
+                              <span>Forecasted:</span>
+                              <strong className="text-[#2DD4BF]">{proj}%</strong>
+                            </div>
+                            <div className="pt-1 border-t border-white/10 text-emerald-400 font-bold">
+                              ▲ +{gain}% Career Trajectory Gain
+                            </div>
+                          </div>
+                        );
+                      }
+                      return null;
                     }}
                   />
-                  <Legend wrapperStyle={{ fontSize: "11px" }} />
-                  <Bar name="Current Score" dataKey="Current" fill="#475569" radius={[4, 4, 0, 0]} />
-                  <Bar name="Projected with Tested Skills" dataKey="Projected" fill="#2DD4BF" radius={[4, 4, 0, 0]} />
+                  <Legend wrapperStyle={{ fontSize: "11px", fontFamily: "monospace" }} />
+                  <Bar name="Current Score" dataKey="Current" fill="url(#currentBarGrad)" radius={[6, 6, 0, 0]} />
+                  <Bar name="Projected with Tested Skills" dataKey="Projected" fill="url(#projectedBarGrad)" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
