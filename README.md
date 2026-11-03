@@ -75,3 +75,4 @@ DATABASE_URL=postgresql://postgres:your_password@localhost:5432/careeriq
 JWT_SECRET=your_jwt_secret_key
 PORT=8000
 ```
+
